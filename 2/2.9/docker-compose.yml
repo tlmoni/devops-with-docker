@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+
+  frontend:
+    container_name: frontend
+    image: frontend
+    build: ./frontend
+    ports:
+      - 5000:5000
+
+  backend:
+    container_name: backend
+    image: backend
+    build: ./backend
+    ports:
+      - 8080:8080
+    environment:
+      - REQUEST_ORIGIN=http://localhost:5000
+      - REDIS_HOST=redis
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=example
+      - POSTGRES_DATABASE=postgres
+    depends_on:
+      - db
+
+  redis:
+    container_name: redis
+    image: redis:6.2-alpine
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning
+
+  db:
+    container_name: db_redmine
+    image: postgres:13.2-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: example
+    volumes:
+      - ./database:/var/lib/postgresql/data
+
+  redmine:
+    container_name: redmine
+    image: redmine:4.1-alpine
+    environment:
+      - REDMINE_DB_POSTGRES=db
+      - REDMINE_DB_PASSWORD=example
+    ports:
+      - 9999:3000
+    volumes:
+      - files:/usr/src/redmine/files
+    depends_on:
+      - db
+
+  adminer:
+    container_name: adminer
+    image: adminer:4
+    restart: always
+    environment:
+      - ADMINER_DESIGN=galkaev
+    ports:
+      - 8083:8080
+
+  nginx:
+    container_name: reverse-proxy
+    image: nginx
+    volumes:
+      - type: bind
+        source: nginx.conf
+        target: /etc/nginx/nginx.conf
+    ports:
+      - 80:80
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  # database:
+  files:
